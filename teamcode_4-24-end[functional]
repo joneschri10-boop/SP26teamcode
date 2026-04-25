@@ -1,1 +1,139 @@
+import re
 
+
+#possible extra business analytics include: which airport has the largest amount of cancellations?
+
+
+# Regex patterns
+year_pattern = re.compile(r"^\d{4}$")
+month_pattern = re.compile(r"^(0?[1-9]|1[0-2])$")
+day_pattern = re.compile(r"^(0?[1-9]|[12][0-9]|3[01])$")
+carrier_pattern = re.compile(r"^[A-Z]{2}$")
+airport_pattern = re.compile(r"^[A-Z0-9]{3,4}$")
+delay_pattern = re.compile(r"^-?\d{1,3}$")
+cancelled_pattern = re.compile(r"^[01]$")
+
+
+def valid_day(year, month, day):
+    month = int(month)
+    day = int(day)
+
+    if month == 2:
+        return day <= 29
+    elif month in [4, 6, 9, 11]:
+        return day <= 30
+    else:
+        return day <= 31
+
+
+def validate_row(fields, line_num, raw_line, log_file):
+    if len(fields) != 9:
+        log_file.write(f"Line {line_num}: Incorrect number of fields\nRaw data: {raw_line}\n\n")
+        return False
+
+    year, month, day, carrier, origin, dest, dep_delay, arr_delay, cancelled = fields
+
+    # YEAR
+    if not year_pattern.match(year):
+        log_file.write(f"Line {line_num}: Invalid year\nRaw data: {raw_line}\n\n")
+        return False
+
+    # MONTH
+    if not month_pattern.match(month):
+        log_file.write(f"Line {line_num}: Invalid month\nRaw data: {raw_line}\n\n")
+        return False
+
+    # DAY
+    if not day_pattern.match(day) or not valid_day(year, month, day):
+        log_file.write(f"Line {line_num}: Invalid day\nRaw data: {raw_line}\n\n")
+        return False
+
+    # CARRIER
+    if not carrier_pattern.match(carrier):
+        log_file.write(f"Line {line_num}: Invalid carrier\nRaw data: {raw_line}\n\n")
+        return False
+
+    # ORIGIN / DEST
+    if not airport_pattern.match(origin):
+        log_file.write(f"Line {line_num}: Invalid origin\nRaw data: {raw_line}\n\n")
+        return False
+
+    if not airport_pattern.match(dest):
+        log_file.write(f"Line {line_num}: Invalid destination\nRaw data: {raw_line}\n\n")
+        return False
+
+    # DELAYS (can be empty OR valid number)
+    if dep_delay != "" and not delay_pattern.match(dep_delay):
+        log_file.write(f"Line {line_num}: Invalid departure delay\nRaw data: {raw_line}\n\n")
+        return False
+
+    if arr_delay != "" and not delay_pattern.match(arr_delay):
+        log_file.write(f"Line {line_num}: Invalid arrival delay\nRaw data: {raw_line}\n\n")
+        return False
+
+    # CANCELLED
+    if not cancelled_pattern.match(cancelled):
+        log_file.write(f"Line {line_num}: Invalid cancelled value\nRaw data: {raw_line}\n\n")
+        return False
+
+    return True
+
+
+def process_file():
+    valid_rows = []
+
+    with open("airport_data.txt", "r") as file, open("error_log.txt", "w") as log:
+        for line_num, line in enumerate(file, start=1):
+            line = line.strip()
+
+            if line_num == 1:
+                continue
+
+            fields = line.split(",")
+
+            if validate_row(fields, line_num, line, log):
+                valid_rows.append(fields)
+
+    return valid_rows
+
+
+# ---------------- SORT FUNCTIONS ----------------
+
+def sort_data(data, choice):
+    if choice == "1":
+        return sorted(data, key=lambda row: row[4])  # origin
+    elif choice == "2":
+        return sorted(data, key=lambda row: row[5])  # destination
+    elif choice == "3":
+        return sorted(data, key=lambda row: (row[4], row[5]))  # origin + destination
+    elif choice == "4":
+        return sorted(data, key=lambda row: row[1])  # month (example)
+    else:
+        return data
+
+
+# ---------------- MAIN PROGRAM ----------------
+
+def main():
+    data = process_file()
+
+    print(f"\nLoaded {len(data)} valid rows.\n")
+
+    print("Sort options:")
+    print("1 - Origin")
+    print("2 - Destination")
+    print("3 - Origin then Destination")
+    print("4 - Month")
+    print("0 - No sorting")
+
+    choice = input("\nEnter choice: ")
+
+    sorted_data = sort_data(data, choice)
+
+    print("\n--- RESULTS ---")
+    for row in sorted_data:
+        print(row)
+
+
+if __name__ == "__main__":
+    main()
